@@ -1,34 +1,6 @@
 /**
  * @file    bme280_driver.h
  * @brief   Driver for Bosch BME280 — air temperature, humidity, and pressure sensor
- *
- * Sensor:    BME280 (AST1025 card variant)
- * Interface: I²C
- * Address:   0x76 (SDO → GND, default) or 0x77 (SDO → VDDIO)
- * Platform:  ESP32-S3, PlatformIO / Arduino framework
- *
- * Operating mode: FORCED MODE — one measurement on demand, then returns to
- * sleep. Ideal for duty-cycled low-power deployments (target: ~1 sample / 5–15 min).
- *
- * Key datasheet constraints to keep in mind:
- *   - NOT waterproof: board must stay inside the sealed enclosure
- *   - Sensitive to condensation — ensure a vented Gore-Tex or similar membrane
- *   - Keep away from heat sources (ESP32-S3 self-heating effect on temperature)
- *   - I²C address 0x76 conflicts with MS5837-02BA if ever added in v2
- *   - Full accuracy temperature range: 0–65 °C (operational: −40 to +85 °C)
- *
- * Typical current in forced mode (osrs x1 / x1 / x1, filter off):
- *   ~0.16 µA average at 1 sample/min  (datasheet §3.5.1)
- *
- * References:
- *   Bosch BME280 Datasheet Rev 1.6, BST-BME280-DS002-15
- *   Adafruit BME280 Arduino library (compensation formulas cross-checked)
- *
- * Usage:
- *   BME280Driver bme;
- *   bme.begin();
- *   BME280Data d = bme.read();
- *   Serial.println(d.temperature_C);
  */
 
 #pragma once
@@ -38,7 +10,7 @@
 
 // I²C address 
 // Default: SDO tied to GND → 0x76
-// Change to 0x77 if SDO is tied to VDDIO (and you need to avoid MS5837 conflict in v2)
+// Change to 0x77 if SDO is tied to VDDIO
 #define BME280_I2C_ADDR_DEFAULT  0x76
 #define BME280_I2C_ADDR_ALT      0x77
 
@@ -50,16 +22,16 @@
 #define BME280_REG_CTRL_MEAS     0xF4
 #define BME280_REG_CONFIG        0xF5
 #define BME280_REG_PRESS_MSB     0xF7
-#define BME280_REG_CALIB_00      0x88   // T1..P9 calibration start
-#define BME280_REG_CALIB_26      0xE1   // H2..H6 calibration start
+#define BME280_REG_CALIB_00      0x88    
+#define BME280_REG_CALIB_26      0xE1    
 
 //Register values 
 #define BME280_CHIP_ID           0x60
 #define BME280_RESET_VALUE       0xB6
 
-// Oversampling settings (osrs field values, datasheet §5.4.3 / §5.4.5)
-#define BME280_OSRS_SKIP         0x00   // skip measurement
-#define BME280_OSRS_1            0x01   // oversampling ×1
+// Oversampling settings (datasheet §5.4.3 / §5.4.5)
+#define BME280_OSRS_SKIP         0x00   
+#define BME280_OSRS_1            0x01   
 #define BME280_OSRS_2            0x02
 #define BME280_OSRS_4            0x03
 #define BME280_OSRS_8            0x04
@@ -77,7 +49,7 @@
 #define BME280_FILTER_8          0x03
 #define BME280_FILTER_16         0x04
 
-// t_sb standby time (for normal mode only — not used in forced mode)
+// t_sb standby time 
 #define BME280_STANDBY_0_5MS     0x00
 #define BME280_STANDBY_62_5MS    0x01
 #define BME280_STANDBY_125MS     0x02
@@ -98,14 +70,12 @@
 //Data structure 
 
 /**
- * @brief Compensated output from a single BME280 measurement.
- *
- * All values are set to NAN if the measurement fails.
+ * @brief Compensated output from a single BME280 measurement
  */
 struct BME280Data {
-    float temperature_C;    ///< Air temperature in °C       (accuracy ±1.0 °C, 0–65 °C)
-    float humidity_pct;     ///< Relative humidity in %RH    (accuracy ±3 %RH)
-    float pressure_hPa;     ///< Barometric pressure in hPa  (accuracy ±1.0 hPa, 0–65 °C)
+    float temperature_C;    ///< Air temperature in °C        
+    float humidity_pct;     ///< Relative humidity in %RH     
+    float pressure_hPa;     ///< Barometric pressure in hPa  
     bool  valid;            ///< true if measurement succeeded
 };
 
@@ -116,8 +86,8 @@ class BME280Driver {
 public:
     /**
      * @brief Construct a BME280Driver.
-     * @param address  I²C address (default 0x76). Use 0x77 if SDO tied to VDDIO.
-     * @param wire     TwoWire instance (default Wire). Pass Wire1 for a second I²C bus.
+     * @param address  I²C address 
+     * @param wire     TwoWire instance (default Wire)
      */
     explicit BME280Driver(uint8_t address = BME280_I2C_ADDR_DEFAULT,
                           TwoWire* wire   = &Wire);
@@ -125,25 +95,17 @@ public:
     /**
      * @brief Initialise the sensor: verify chip ID, read calibration data,
      *        and configure for forced-mode operation.
-     *
-     * Call once in setup(). Wire.begin() must be called before this.
-     *
-     * @return BME280_OK on success, negative error code on failure.
+     * @return BME280_OK on success
      */
     int8_t begin();
 
     /**
      * @brief Trigger one forced-mode measurement and return compensated results.
-     *
-     * Blocks for the measurement duration (~10 ms with osrs ×1).
-     * Returns a BME280Data with valid=false on any error.
      */
     BME280Data read();
 
     /**
      * @brief Perform a soft reset (write 0xB6 to reset register).
-     *
-     * Useful to recover from a locked-up state. Call begin() again after reset.
      */
     void reset();
 
@@ -166,7 +128,7 @@ private:
     // Calibration data readout (datasheet §4.2.2)
     void _readCalibration();
 
-    // Compensation formulas (datasheet §4.2.3 — integer 32/64-bit path)
+    // Compensation formulas (datasheet §4.2.3)
     float _compensateTemperature(int32_t adc_T);
     float _compensateHumidity(int32_t adc_H);
     float _compensatePressure(int32_t adc_P);
